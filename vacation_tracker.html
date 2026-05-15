@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cavell Risk — Vacation Tracker</title>
+<style>
+:root{--bg:#f6f5f0;--surface:#fff;--border:rgba(0,0,0,.09);--border-med:rgba(0,0,0,.16);--text:#1a1a18;--muted:#6b6b65;--hint:#9b9b94;--r-sm:6px;--r-md:10px;--r-lg:14px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.5}
+.screen{display:flex;align-items:center;justify-content:center;min-height:100vh;flex-direction:column;gap:1rem;padding:2rem;text-align:center}
+.spinner{width:28px;height:28px;border:2px solid var(--border-med);border-top-color:var(--text);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+#app{max-width:1300px;margin:0 auto;padding:1.5rem 1.25rem;display:none}
+.topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;flex-wrap:wrap;gap:.5rem}
+.topbar h1{font-size:17px;font-weight:600;letter-spacing:-.01em}
+.topbar p{font-size:12px;color:var(--muted);margin-top:1px}
+.user-chip{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--muted);background:var(--surface);border:.5px solid var(--border);border-radius:99px;padding:5px 12px 5px 8px}
+.uav{width:22px;height:22px;border-radius:50%;background:#e8f0fb;color:#1a4a8a;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:600;flex-shrink:0}
+.admin-chip{background:#fef3e2;color:#8a4e00;font-size:10px;font-weight:600;padding:2px 7px;border-radius:99px;border:.5px solid #f5c87a}
+.tabs{display:flex;border-bottom:.5px solid var(--border-med);margin-bottom:1.5rem;gap:2px;flex-wrap:wrap}
+.tab{padding:9px 16px;font-size:13px;color:var(--muted);cursor:pointer;border:none;background:none;border-bottom:2px solid transparent;margin-bottom:-1px;display:inline-flex;align-items:center;gap:6px;transition:color .12s}
+.tab:hover{color:var(--text)}.tab.active{color:var(--text);font-weight:500;border-bottom-color:var(--text)}
+.tab svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.view{display:none}.view.active{display:block}
+.stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:1.25rem}
+.stat{background:var(--surface);border:.5px solid var(--border);border-radius:var(--r-md);padding:1rem 1.125rem}
+.stat-lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px}
+.stat-val{font-size:24px;font-weight:500;line-height:1}
+.stat-sub{font-size:10px;color:var(--hint);margin-top:3px}
+.card{background:var(--surface);border:.5px solid var(--border);border-radius:var(--r-lg);padding:1.125rem;margin-bottom:1rem}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:7px 14px;font-size:12px;font-weight:500;border:.5px solid var(--border-med);border-radius:var(--r-sm);background:var(--surface);color:var(--text);cursor:pointer;transition:background .1s}
+.btn:hover{background:var(--bg)}.btn:active{transform:scale(.98)}
+.btn-primary{background:var(--text);color:#fff;border-color:var(--text)}.btn-primary:hover{opacity:.88;background:var(--text)}
+.btn-sm{padding:4px 10px;font-size:11px}
+.btn-approve{color:#1a5c30;border-color:#a8d8b8}.btn-approve:hover{background:#e6f4eb}
+.btn-reject{color:#8a1a1a;border-color:#f0b8b8}.btn-reject:hover{background:#fdecea}
+.btn-warn{color:#8a4e00;border-color:#f5c87a}.btn-warn:hover{background:#fef3e2}
+.btn svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.badge{display:inline-flex;align-items:center;padding:2px 9px;border-radius:99px;font-size:11px;font-weight:500}
+.badge-pending{background:#fef3e2;color:#8a4e00}
+.badge-approved{background:#e6f4eb;color:#1a5c30}
+.badge-rejected{background:#fdecea;color:#8a1a1a}
+.badge-away{background:#e8f0fb;color:#1a4a8a}
+.badge-active{background:#e6f4eb;color:#1a5c30}
+.av{width:28px;height:28px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;flex-shrink:0}
+.av-sm{width:22px;height:22px;font-size:8px}
+.iflex{display:inline-flex;align-items:center;gap:8px}
+.tbl-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{text-align:left;padding:8px 12px;color:var(--muted);font-weight:500;border-bottom:.5px solid var(--border-med);font-size:11px;text-transform:uppercase;letter-spacing:.03em;white-space:nowrap}
+td{padding:9px 12px;border-bottom:.5px solid var(--border);color:var(--text);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tbody tr:hover td{background:var(--bg)}
+.filters{display:flex;gap:8px;margin-bottom:1rem;flex-wrap:wrap}
+.filters input,.filters select{padding:7px 10px;font-size:12px;border:.5px solid var(--border-med);border-radius:var(--r-sm);background:var(--surface);color:var(--text);min-width:0}
+.filters input{flex:1;min-width:140px}
+.sh-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:.5rem}
+.mnav{display:flex;align-items:center;gap:8px;margin-bottom:.875rem;flex-wrap:wrap}
+.mnav-title{font-size:14px;font-weight:500;min-width:120px;text-align:center}
+.cal-legend{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.leg-item{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--muted)}
+.leg-dot{width:10px;height:10px;border-radius:3px;flex-shrink:0}
+.cal-scroll{overflow-x:auto}
+.cal-hdr-row{display:grid;font-size:10px;color:var(--hint);font-weight:500;border-bottom:.5px solid var(--border-med);padding-bottom:5px;margin-bottom:2px}
+.cal-emp-row{display:grid;align-items:center;min-height:34px;border-bottom:.5px solid var(--border)}
+.cal-emp-row:last-child{border-bottom:none}
+.cal-emp-row:hover{background:var(--bg)}
+.day-cell{height:34px;position:relative}
+.today-bar{position:absolute;top:0;bottom:0;width:2px;z-index:5;pointer-events:none;background:rgba(0,0,0,.15)}
+.team-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:1rem}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:200;align-items:center;justify-content:center}
+.modal-overlay.open{display:flex}
+.modal{background:var(--surface);border:.5px solid var(--border);border-radius:var(--r-lg);padding:1.5rem;width:480px;max-width:96vw;max-height:90vh;overflow-y:auto}
+.modal-title{font-size:15px;font-weight:600;margin-bottom:1.25rem}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:1.25rem}
+.field{margin-bottom:.875rem}
+.field label{display:block;font-size:12px;color:var(--muted);margin-bottom:4px;font-weight:500}
+.field input,.field select,.field textarea{width:100%;padding:8px 10px;font-size:13px;border:.5px solid var(--border-med);border-radius:var(--r-sm);background:var(--surface);color:var(--text)}
+.field textarea{min-height:56px;resize:vertical}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.toast{position:fixed;bottom:1.5rem;right:1.5rem;background:var(--text);color:#fff;padding:.75rem 1.25rem;border-radius:var(--r-md);font-size:13px;z-index:999;opacity:0;transform:translateY(8px);transition:all .25s;pointer-events:none;max-width:340px}
+.toast.show{opacity:1;transform:translateY(0)}.toast.err{background:#8a1a1a}
+.err-banner{background:#fdecea;border:.5px solid #f0b8b8;color:#8a1a1a;padding:.75rem 1rem;border-radius:var(--r-md);font-size:12px;margin-bottom:1rem;display:none}
+.err-banner.show{display:block}
+.info-box{background:#e8f0fb;border:.5px solid #b8d0f8;color:#1a3a6a;padding:.75rem 1rem;border-radius:var(--r-md);font-size:12px;margin-bottom:1rem;line-height:1.6}
+.warn-box{background:#fef3e2;border:.5px solid #f5c87a;color:#7a4a00;padding:.75rem 1rem;border-radius:var(--r-md);font-size:12px;margin-bottom:.875rem;line-height:1.6}
+code{background:var(--bg);padding:1px 6px;border-radius:4px;font-family:monospace;font-size:11px;color:var(--text)}
+</style>
+</head>
+<body>
+
+<!--
+  ══════════════════════════════════════════════════════
+  CAVELL RISK — VACATION TRACKER
+  
+  HOW TO DEPLOY (no Azure, no app registration needed):
+
+  1. Create a SharePoint List called "VacationRequests" on
+     cavellrisk.sharepoint.com/sites/CavellRiskInc
+     with the columns listed in the setup guide document.
+
+  2. Upload THIS file to a SharePoint page on that same site.
+     Because it lives on SharePoint, users are already signed
+     in — no extra login required.
+
+  3. Set up the two Power Automate flows following the
+     separate guide document.
+
+  That's it. No config to edit in this file.
+  ══════════════════════════════════════════════════════
+-->
+
+<!-- Loading -->
+<div id="loading-screen" class="screen">
+  <div class="spinner"></div>
+  <span style="font-size:13px;color:var(--muted)" id="loading-msg">Loading…</span>
+</div>
+
+<!-- Error (shown if not on SharePoint) -->
+<div id="error-screen" class="screen" style="display:none">
+  <div style="font-size:40px;margin-bottom:.5rem">⚠️</div>
+  <div style="font-size:16px;font-weight:600;margin-bottom:.5rem">Wrong location</div>
+  <div style="font-size:13px;color:var(--muted);max-width:400px;line-height:1.7" id="error-msg">
+    This file needs to be uploaded to SharePoint to work.<br>
+    Open it from <strong>cavellrisk.sharepoint.com/sites/CavellRiskInc</strong>
+  </div>
+</div>
+
+<!-- App -->
+<div id="app">
+  <div class="topbar">
+    <div>
+      <h1>Vacation Tracker</h1>
+      <p>Cavell Risk &mdash; <span id="year-lbl"></span></p>
+    </div>
+    <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap">
+      <div class="user-chip"><div class="uav" id="u-av"></div><span id="u-name"></span></div>
+      <span class="admin-chip" id="admin-badge" style="display:none">Admin</span>
+    </div>
+  </div>
+
+  <div class="err-banner" id="err-banner"></div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="sw('cal')">
+      <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Calendar
+    </button>
+    <button class="tab" onclick="sw('requests')">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Requests
+    </button>
+    <button class="tab" onclick="sw('team')">
+      <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>By manager
+    </button>
+    <button class="tab" onclick="sw('employees')">
+      <svg viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="3" cy="6" r="1"/><circle cx="3" cy="12" r="1"/><circle cx="3" cy="18" r="1"/></svg>All employees
+    </button>
+    <button class="tab" id="admin-tab" onclick="sw('admin')" style="display:none">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 1 0-16 0"/><line x1="12" y1="14" x2="12" y2="21"/><line x1="9" y1="17" x2="15" y2="17"/></svg>Admin
+    </button>
+  </div>
+
+  <!-- CALENDAR -->
+  <div id="view-cal" class="view active">
+    <div class="stat-row" id="stats"></div>
+    <div class="card">
+      <div class="mnav">
+        <button class="btn btn-sm" onclick="changeMonth(-1)"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></button>
+        <span class="mnav-title" id="month-lbl"></span>
+        <button class="btn btn-sm" onclick="changeMonth(1)"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></button>
+        <div style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap" id="dept-btns"></div>
+      </div>
+      <div class="cal-legend" id="cal-legend"></div>
+      <div class="cal-scroll"><div id="cal-grid"></div></div>
+    </div>
+  </div>
+
+  <!-- REQUESTS -->
+  <div id="view-requests" class="view">
+    <div class="sh-hdr">
+      <div style="font-size:14px;font-weight:500">Requests <span id="req-yr-badge" style="font-size:11px;color:var(--muted);font-weight:400"></span></div>
+      <button class="btn btn-primary" onclick="openReqModal()">
+        <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>New request
+      </button>
+    </div>
+    <div class="filters">
+      <input type="text" placeholder="Search employee…" id="rs" oninput="renderReqs()">
+      <select id="rf" onchange="renderReqs()"><option value="">All statuses</option><option>Pending</option><option>Approved</option><option>Rejected</option></select>
+      <select id="ry" onchange="renderReqs()"></select>
+      <select id="rmgr" onchange="renderReqs()"><option value="">All managers</option></select>
+    </div>
+    <div class="card" style="padding:0;overflow:hidden">
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Employee</th><th>Title</th><th>Dates</th><th>Days</th><th>Year</th><th>Manager</th><th>Status</th><th style="text-align:right">Action</th></tr></thead>
+          <tbody id="reqs-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- BY MANAGER -->
+  <div id="view-team" class="view">
+    <div style="font-size:14px;font-weight:500;margin-bottom:1rem" id="team-hdr"></div>
+    <div class="team-grid" id="team-cards"></div>
+  </div>
+
+  <!-- ALL EMPLOYEES -->
+  <div id="view-employees" class="view">
+    <div class="sh-hdr"><div style="font-size:14px;font-weight:500" id="emp-title">All employees</div></div>
+    <div class="filters">
+      <input type="text" placeholder="Search…" id="es" oninput="renderEmps()">
+      <select id="emgr" onchange="renderEmps()"><option value="">All managers</option></select>
+      <select id="edept" onchange="renderEmps()"><option value="">All departments</option><option>Commercial</option><option>Corporate</option></select>
+    </div>
+    <div class="card" style="padding:0;overflow:hidden">
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Name</th><th>Title</th><th>Dept</th><th>Manager</th><th id="emp-yr-col">Days taken</th><th>Status</th></tr></thead>
+          <tbody id="emps-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ADMIN -->
+  <div id="view-admin" class="view">
+    <div class="info-box"><strong>Admin panel — Michael Armstrong</strong><br>Reassign managers, add or edit employees, and override any stuck request. If someone's manager leaves, update their row here so requests keep routing correctly — otherwise they fall back to cavellcentral@cavellrisk.com.</div>
+    <div class="card">
+      <div class="sh-hdr" style="margin-bottom:.75rem">
+        <div style="font-size:13px;font-weight:500">Employee roster</div>
+        <button class="btn btn-primary btn-sm" onclick="openAddEmpModal()"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Add employee</button>
+      </div>
+      <div class="filters" style="margin-bottom:.75rem">
+        <input type="text" placeholder="Search…" id="admin-es" oninput="renderAdmin()">
+        <select id="admin-edept" onchange="renderAdmin()"><option value="">All departments</option><option>Commercial</option><option>Corporate</option></select>
+      </div>
+      <div class="tbl-wrap">
+        <table><thead><tr><th>Name</th><th>Title</th><th>Dept</th><th>Performance manager</th><th style="text-align:right">Actions</th></tr></thead>
+        <tbody id="admin-emps-tbody"></tbody></table>
+      </div>
+    </div>
+    <div class="card">
+      <div style="font-size:13px;font-weight:500;margin-bottom:.75rem">All pending requests</div>
+      <div class="tbl-wrap">
+        <table><thead><tr><th>Employee</th><th>Dates</th><th>Days</th><th>Manager</th><th style="text-align:right">Override</th></tr></thead>
+        <tbody id="admin-reqs-tbody"></tbody></table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="modal-overlay" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div class="modal-title" id="modal-title"></div>
+    <div id="modal-body"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" id="modal-ok" onclick="submitModal()">Submit</button>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ── CONFIG ────────────────────────────────────────────────────────
+// No Azure, no client IDs — just the SharePoint site details.
+// This file must be hosted on SharePoint to work; auth is automatic.
+const SITE_URL   = '/sites/CavellRiskInc';          // relative path on cavellrisk.sharepoint.com
+const LIST_NAME  = 'VacationRequests';
+const ADMIN_EMAIL    = 'mja@cavellrisk.com';         // Michael Armstrong
+const FALLBACK_EMAIL = 'cavellcentral@cavellrisk.com';
+
+// ── EMPLOYEES ────────────────────────────────────────────────────
+let EMPLOYEES=[
+  {code:'COTTON',name:'Alexandra Cotton',dept:'Commercial',title:'Senior Associate, Client Experience',email:'alexandra.cotton@cavellrisk.com',manager:'daniel.abatecola@cavellrisk.com',managerName:'Daniel Abatecola'},
+  {code:'GOELIS',name:'Ishaan Goel',dept:'Commercial',title:'Senior Associate, Client Experience',email:'ishaan.goel@cavellrisk.com',manager:'helena.fan@cavellrisk.com',managerName:'Helena Fan'},
+  {code:'APURAV',name:'Apurav Bharti',dept:'Commercial',title:'Director, Client Experience',email:'apurav.bharti@cavellrisk.com',manager:'sara.tanaka@cavellrisk.com',managerName:'Sara Tanaka'},
+  {code:'CAMPBE',name:'Rod Campbell',dept:'Corporate',title:'CEO',email:'rc@cavellrisk.com',manager:'',managerName:''},
+  {code:'CHARLJ',name:'Jeffrey Charles',dept:'Corporate',title:'Founding Partner & President',email:'jc@cavellrisk.com',manager:'rc@cavellrisk.com',managerName:'Rod Campbell'},
+  {code:'CLAIRE',name:'Claire Bourgard',dept:'Commercial',title:'Manager, Client Experience',email:'claire.bourgard@cavellrisk.com',manager:'helena.fan@cavellrisk.com',managerName:'Helena Fan'},
+  {code:'DANIEL',name:'Daniel Abatecola',dept:'Commercial',title:'Director, Client Experience',email:'daniel.abatecola@cavellrisk.com',manager:'maria.costiuc@cavellrisk.com',managerName:'Maria Costiuc'},
+  {code:'HARTYP',name:'Hartland Pitfield',dept:'Commercial',title:'COO',email:'hartland.pitfield@cavellrisk.com',manager:'rc@cavellrisk.com',managerName:'Rod Campbell'},
+  {code:'HELENA',name:'Helena Fan',dept:'Commercial',title:'Partner & Director',email:'helena.fan@cavellrisk.com',manager:'rc@cavellrisk.com',managerName:'Rod Campbell'},
+  {code:'JENORM',name:'Jen Ormond',dept:'Commercial',title:'Founding Partner & Director',email:'jen.ormond@cavellrisk.com',manager:'rc@cavellrisk.com',managerName:'Rod Campbell'},
+  {code:'MARIAC',name:'Maria Costiuc',dept:'Commercial',title:'Partner & Director',email:'maria.costiuc@cavellrisk.com',manager:'rc@cavellrisk.com',managerName:'Rod Campbell'},
+  {code:'MJARMS',name:'Michael Armstrong',dept:'Corporate',title:'Partner & VP, Finance',email:'mja@cavellrisk.com',manager:'rc@cavellrisk.com',managerName:'Rod Campbell'},
+  {code:'TANAKA',name:'Sara Tanaka',dept:'Commercial',title:'Founding Partner & Director',email:'sara.tanaka@cavellrisk.com',manager:'rc@cavellrisk.com',managerName:'Rod Campbell'},
+  {code:'THAYAA',name:'Yaamini Thareja',dept:'Commercial',title:'Manager, Client Experience',email:'yaamini.thareja@cavellrisk.com',manager:'apurav.bharti@cavellrisk.com',managerName:'Apurav Bharti'},
+  {code:'MITCHJ',name:'Mitch Johnson',dept:'Commercial',title:'Senior Manager, Client Experience',email:'mj@cavellrisk.com',manager:'hartland.pitfield@cavellrisk.com',managerName:'Hartland Pitfield'},
+  {code:'WAILAM',name:'Wai Ching Lam',dept:'Commercial',title:'Associate, Client Experience',email:'thomas.lam@cavellrisk.com',manager:'helena.fan@cavellrisk.com',managerName:'Helena Fan'},
+  {code:'ZHETUO',name:'Tuo Zheng',dept:'Commercial',title:'Manager, Client Experience',email:'tony.zheng@cavellrisk.com',manager:'helena.fan@cavellrisk.com',managerName:'Helena Fan'},
+  {code:'PATMCG',name:'Patrick McGuire',dept:'Commercial',title:'Associate, Client Experience',email:'patrick.mcguire@cavellrisk.com',manager:'daniel.abatecola@cavellrisk.com',managerName:'Daniel Abatecola'},
+  {code:'PIPPIM',name:'Philippa McKay',dept:'Commercial',title:'Manager, Client Experience',email:'philippa.mckay@cavellrisk.com',manager:'helena.fan@cavellrisk.com',managerName:'Helena Fan'},
+  {code:'CARAWI',name:'Caraline Wilson',dept:'Commercial',title:'Manager, Client Experience',email:'caraline.wilson@cavellrisk.com',manager:'sara.tanaka@cavellrisk.com',managerName:'Sara Tanaka'},
+  {code:'ISAACK',name:'Isaac Kennedy',dept:'Commercial',title:'Associate, Client Experience',email:'isaac.kennedy@cavellrisk.com',manager:'jc@cavellrisk.com',managerName:'Jeffrey Charles'},
+  {code:'SALEEM',name:'Saleem Ullah',dept:'Corporate',title:'Controller',email:'su@cavellrisk.com',manager:'mja@cavellrisk.com',managerName:'Michael Armstrong'},
+  {code:'VICBRZ',name:'Victoria Brzyski',dept:'Corporate',title:'Intern, Financial Analyst',email:'victoria.brzyski@cavellrisk.com',manager:'mja@cavellrisk.com',managerName:'Michael Armstrong'},
+  {code:'TRANCH',name:'Christine Tran',dept:'Corporate',title:'Executive Assistant',email:'christine.tran@cavellrisk.com',manager:'jc@cavellrisk.com',managerName:'Jeffrey Charles'},
+  {code:'MCNABB',name:'Curtis McNabb',dept:'Commercial',title:'Associate, Client Experience',email:'curtis.mcnabb@cavellrisk.com',manager:'mj@cavellrisk.com',managerName:'Mitch Johnson'},
+  {code:'TASAID',name:'Talia Said',dept:'Commercial',title:'Associate, Client Experience',email:'talia.said@cavellrisk.com',manager:'apurav.bharti@cavellrisk.com',managerName:'Apurav Bharti'},
+  {code:'FOOTEA',name:'Avery Foote',dept:'Commercial',title:'Associate, Client Experience',email:'avery.foote@cavellrisk.com',manager:'apurav.bharti@cavellrisk.com',managerName:'Apurav Bharti'},
+  {code:'LANAEL',name:'Lana Elhamad',dept:'Commercial',title:'Associate, Client Experience',email:'lana.elhamad@cavellrisk.com',manager:'daniel.abatecola@cavellrisk.com',managerName:'Daniel Abatecola'},
+  {code:'ALEXKL',name:'Alex Klitirinos',dept:'Commercial',title:'Manager, Client Experience',email:'alex.klitirinos@cavellrisk.com',manager:'maria.costiuc@cavellrisk.com',managerName:'Maria Costiuc'},
+  {code:'SOJESS',name:'Jessalin Somerville',dept:'Corporate',title:'Director, People and Culture',email:'jessalin.somerville@cavellrisk.com',manager:'rc@cavellrisk.com',managerName:'Rod Campbell'},
+  {code:'COETDY',name:'Dylan Coetzee',dept:'Commercial',title:'Manager, Client Experience',email:'dylan.coetzee@cavellrisk.com',manager:'maria.costiuc@cavellrisk.com',managerName:'Maria Costiuc'},
+  {code:'GREENE',name:'Danielle Greene',dept:'Commercial',title:'Manager, Client Experience',email:'danielle.greene@cavellrisk.com',manager:'sara.tanaka@cavellrisk.com',managerName:'Sara Tanaka'},
+  {code:'BARCAR',name:'Carlton Barrons',dept:'Commercial',title:'Director, Client Experience',email:'carlton.barrons@cavellrisk.com',manager:'rc@cavellrisk.com',managerName:'Rod Campbell'},
+];
+
+// ── HELPERS ───────────────────────────────────────────────────────
+const DEPT_C={Commercial:['#e8f0fb','#1a4a8a'],Corporate:['#e8f5f0','#0a5a3a']};
+function dc(d){return DEPT_C[d]||DEPT_C.Commercial;}
+function ini(n){const p=n.replace(/[(&].*/,'').trim().split(/\s+/).filter(Boolean);return((p[0]||'')[0]+((p[p.length-1]||'')[0]||'')).toUpperCase();}
+function fmtD(iso){if(!iso)return'—';return new Date(iso+'T12:00:00').toLocaleDateString('en-CA',{month:'short',day:'numeric'});}
+function bizDays(f,t){let d=new Date(f+'T12:00:00'),e=new Date(t+'T12:00:00'),n=0;while(d<=e){const w=d.getDay();if(w&&w<6)n++;d.setDate(d.getDate()+1);}return n;}
+function todayISO(){return new Date().toISOString().split('T')[0];}
+function getEmp(email){return EMPLOYEES.find(e=>e.email===email);}
+function resolveManager(emp){return(emp&&emp.manager&&emp.manager.includes('@'))?emp.manager:FALLBACK_EMAIL;}
+
+// ── SHAREPOINT REST API (cookie auth — works when hosted on SP) ───
+// No tokens, no Azure. SharePoint handles auth via the browser session.
+let _digest='', _digestExpiry=0, _listId='';
+
+async function getDigest(){
+  // Request digest is SharePoint's write token — refreshes every ~30 min
+  if(Date.now()<_digestExpiry)return _digest;
+  const r=await fetch(`${SITE_URL}/_api/contextinfo`,{method:'POST',headers:{Accept:'application/json;odata=nometadata'}});
+  if(!r.ok)throw new Error('Could not connect to SharePoint. Make sure this file is opened from SharePoint, not downloaded locally.');
+  const d=await r.json();
+  _digest=d.FormDigestValue;
+  _digestExpiry=Date.now()+(d.FormDigestTimeoutSeconds-60)*1000;
+  return _digest;
+}
+
+async function spGet(url){
+  const r=await fetch(`${SITE_URL}/_api/${url}`,{headers:{Accept:'application/json;odata=nometadata'}});
+  if(!r.ok)throw new Error('Error loading data ('+r.status+')');
+  return r.json();
+}
+async function spPost(url,body){
+  const digest=await getDigest();
+  const r=await fetch(`${SITE_URL}/_api/${url}`,{
+    method:'POST',
+    headers:{Accept:'application/json;odata=nometadata','Content-Type':'application/json;odata=nometadata','X-RequestDigest':digest},
+    body:JSON.stringify(body)
+  });
+  if(!r.ok)throw new Error('Error saving ('+r.status+'): '+(await r.text()));
+  return r.json();
+}
+async function spPatch(url,body){
+  const digest=await getDigest();
+  const r=await fetch(`${SITE_URL}/_api/${url}`,{
+    method:'POST',
+    headers:{Accept:'application/json;odata=nometadata','Content-Type':'application/json;odata=nometadata','X-RequestDigest':digest,'X-HTTP-Method':'MERGE','IF-MATCH':'*'},
+    body:JSON.stringify(body)
+  });
+  if(!r.ok&&r.status!==204)throw new Error('Error updating ('+r.status+')');
+}
+
+async function getListId(){
+  if(_listId)return _listId;
+  const d=await spGet(`web/lists/getbytitle('${LIST_NAME}')?$select=Id`);
+  _listId=d.Id;return _listId;
+}
+
+async function getCurrentUser(){
+  const d=await spGet('web/currentuser?$select=Title,Email');
+  return{name:d.Title||'',email:(d.Email||'').toLowerCase(),initials:ini(d.Title||'User')};
+}
+
+// ── DATA ──────────────────────────────────────────────────────────
+let requests=[];
+async function loadRequests(){
+  try{
+    await getListId();
+    const d=await spGet(`web/lists/getbytitle('${LIST_NAME}')/items?$select=Id,EmployeeCode,EmployeeName,EmployeeEmail,ManagerEmail,Department,JobTitle,StartDate,EndDate,TotalDays,CalendarYear,Status,Notes,ApprovedBy,ApprovedDate&$orderby=StartDate desc&$top=999`);
+    requests=(d.value||[]).map(i=>({
+      id:i.Id,code:i.EmployeeCode,name:i.EmployeeName,
+      email:i.EmployeeEmail,managerEmail:i.ManagerEmail,
+      dept:i.Department,title:i.JobTitle,
+      from:i.StartDate?.split('T')[0],to:i.EndDate?.split('T')[0],
+      days:i.TotalDays,year:i.CalendarYear,
+      status:i.Status,notes:i.Notes||'',approvedBy:i.ApprovedBy||'',
+    }));
+    hideErr();
+  }catch(e){showErr(e.message);}
+}
+
+async function createReq(fields){
+  return spPost(`web/lists/getbytitle('${LIST_NAME}')/items`,fields);
+}
+async function updateStatus(id,status,by){
+  await spPatch(`web/lists/getbytitle('${LIST_NAME}')/items(${id})`,{
+    '__metadata':{'type':'SP.Data.VacationRequestsListItem'},
+    Status:status,ApprovedBy:by,ApprovedDate:todayISO()+'T00:00:00Z'
+  });
+}
+
+// ── PERMISSIONS ───────────────────────────────────────────────────
+let currentUser,isAdmin=false;
+function canAction(req){
+  if(isAdmin)return true;
+  const emp=getEmp(req.email);
+  return currentUser.email===resolveManager(emp).toLowerCase();
+}
+
+// ── BOOT ──────────────────────────────────────────────────────────
+const CY=new Date().getFullYear();
+let calYear=CY,calMonth=new Date().getMonth(),filterDept='';
+
+async function boot(){
+  try{
+    currentUser=await getCurrentUser();
+  }catch(e){
+    // Not on SharePoint — show error screen
+    document.getElementById('loading-screen').style.display='none';
+    document.getElementById('error-screen').style.display='flex';
+    return;
+  }
+  isAdmin=currentUser.email===ADMIN_EMAIL.toLowerCase();
+  document.getElementById('u-name').textContent=currentUser.name||currentUser.email;
+  document.getElementById('u-av').textContent=currentUser.initials;
+  document.getElementById('year-lbl').textContent=CY;
+  document.getElementById('team-hdr').textContent='Manager overview — '+CY;
+  document.getElementById('emp-yr-col').textContent=CY+' days';
+  if(isAdmin){
+    document.getElementById('admin-badge').style.display='inline-flex';
+    document.getElementById('admin-tab').style.display='inline-flex';
+  }
+  document.getElementById('loading-msg').textContent='Loading requests…';
+  await loadRequests();
+  populateMgrDropdowns();populateYearFilter();
+  document.getElementById('loading-screen').style.display='none';
+  document.getElementById('app').style.display='block';
+  renderCal();renderStats();
+}
+
+function showErr(m){const b=document.getElementById('err-banner');b.textContent=m;b.classList.add('show');}
+function hideErr(){document.getElementById('err-banner').classList.remove('show');}
+let _tt;
+function toast(m,err=false){const el=document.getElementById('toast');el.textContent=m;el.className='toast show'+(err?' err':'');clearTimeout(_tt);_tt=setTimeout(()=>el.classList.remove('show'),4500);}
+
+function sw(id){
+  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',['cal','requests','team','employees','admin'][i]===id));
+  document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id==='view-'+id));
+  if(id==='cal')renderCal();
+  if(id==='requests'){populateMgrDropdowns();renderReqs();}
+  if(id==='team')renderTeam();
+  if(id==='employees'){populateMgrDropdowns();renderEmps();}
+  if(id==='admin')renderAdmin();
+}
+function populateMgrDropdowns(){
+  const mgrs=[...new Set(EMPLOYEES.map(e=>e.managerName).filter(Boolean))].sort();
+  ['rmgr','emgr'].forEach(sel=>{
+    const el=document.getElementById(sel);if(!el)return;
+    const cur=el.value;
+    el.innerHTML='<option value="">All managers</option>'+mgrs.map(m=>`<option value="${m}">${m}</option>`).join('');
+    el.value=cur;
+  });
+}
+function populateYearFilter(){
+  const yrs=[...new Set([CY,...requests.map(r=>r.year).filter(Boolean)])].sort((a,b)=>b-a);
+  const el=document.getElementById('ry');if(!el)return;
+  el.innerHTML=yrs.map(y=>`<option value="${y}"${y===CY?'selected':''}>${y}</option>`).join('');
+}
+function selYear(){return parseInt(document.getElementById('ry')?.value||CY);}
+
+// ── STATS ────────────────────────────────────────────────────────
+function renderStats(){
+  const t=todayISO();
+  const away=requests.filter(r=>r.status==='Approved'&&r.from<=t&&t<=r.to).length;
+  const pend=requests.filter(r=>r.status==='Pending').length;
+  const appDays=requests.filter(r=>r.status==='Approved'&&r.year===calYear).reduce((s,r)=>s+(r.days||0),0);
+  const appReqs=requests.filter(r=>r.status==='Approved'&&r.year===calYear).length;
+  document.getElementById('stats').innerHTML=`
+    <div class="stat"><div class="stat-lbl">Employees</div><div class="stat-val">${EMPLOYEES.length}</div><div class="stat-sub">active roster</div></div>
+    <div class="stat"><div class="stat-lbl">Away today</div><div class="stat-val">${away}</div><div class="stat-sub">on approved leave</div></div>
+    <div class="stat"><div class="stat-lbl">Pending approval</div><div class="stat-val">${pend}</div><div class="stat-sub">awaiting manager</div></div>
+    <div class="stat"><div class="stat-lbl">${calYear} days taken</div><div class="stat-val">${appDays}</div><div class="stat-sub">across ${appReqs} approved requests</div></div>`;
+}
+
+// ── CALENDAR ─────────────────────────────────────────────────────
+function changeMonth(d){calMonth+=d;if(calMonth>11){calMonth=0;calYear++;}if(calMonth<0){calMonth=11;calYear--;}renderCal();renderStats();}
+function setDeptFilter(d){filterDept=d;renderCal();}
+function renderCal(){
+  const y=calYear,m=calMonth,dim=new Date(y,m+1,0).getDate();
+  document.getElementById('month-lbl').textContent=new Date(y,m,1).toLocaleDateString('en-CA',{month:'long',year:'numeric'});
+  const emps=filterDept?EMPLOYEES.filter(e=>e.dept===filterDept):EMPLOYEES;
+  document.getElementById('dept-btns').innerHTML=
+    `<button class="btn btn-sm ${!filterDept?'btn-primary':''}" onclick="setDeptFilter('')">All</button>`+
+    Object.keys(DEPT_C).map(d=>`<button class="btn btn-sm ${filterDept===d?'btn-primary':''}" onclick="setDeptFilter('${d}')">${d}</button>`).join('');
+  document.getElementById('cal-legend').innerHTML=
+    Object.entries(DEPT_C).map(([k,[bg,c]])=>`<span class="leg-item"><span class="leg-dot" style="background:${bg};border:.5px solid ${c}"></span>${k}</span>`).join('')+
+    `<span class="leg-item"><span class="leg-dot" style="background:#fef3e2;border:.5px solid #c87820"></span>Pending</span>`;
+  const nameW=136,cellW=Math.max(14,Math.floor(460/dim));
+  const t=todayISO();
+  const todayCol=(()=>{const d=new Date(t);return d.getFullYear()===y&&d.getMonth()===m?d.getDate()-1:-1;})();
+  let html=`<div class="cal-hdr-row" style="grid-template-columns:${nameW}px repeat(${dim},${cellW}px)"><div></div>`;
+  for(let d=1;d<=dim;d++){const dw=new Date(y,m,d).getDay();html+=`<div style="text-align:center${(dw===0||dw===6)?';opacity:.35':''}">${d}</div>`;}
+  html+=`</div><div style="position:relative">`;
+  if(todayCol>=0)html+=`<div class="today-bar" style="left:${nameW+todayCol*cellW+cellW/2}px"></div>`;
+  emps.forEach(emp=>{
+    const[bg,c]=dc(emp.dept);
+    const mn=`${y}-${String(m+1).padStart(2,'0')}`;
+    const myR=requests.filter(r=>r.email===emp.email&&(r.status==='Approved'||r.status==='Pending')&&r.from&&r.to&&r.to>=mn+'-01'&&r.from<=mn+'-'+String(dim).padStart(2,'0'));
+    html+=`<div class="cal-emp-row" style="grid-template-columns:${nameW}px repeat(${dim},${cellW}px)">
+      <div style="padding:3px 6px 3px 0"><div class="iflex">
+        <div class="av av-sm" style="background:${bg};color:${c}">${ini(emp.name)}</div>
+        <div style="overflow:hidden">
+          <div style="font-size:10px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:94px">${emp.name.split(' ').slice(0,2).join(' ')}</div>
+          <div style="font-size:9px;color:var(--hint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:94px">${emp.title.split(',')[0]}</div>
+        </div>
+      </div></div>`;
+    for(let d=1;d<=dim;d++){
+      const iso=`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      const req=myR.find(r=>iso>=r.from&&iso<=r.to);
+      const wk=new Date(y,m,d).getDay();
+      html+=`<div class="day-cell" style="${(wk===0||wk===6)?'background:rgba(0,0,0,.025)':''}">`;
+      if(req){
+        const ip=req.status==='Pending',isSt=iso===req.from,isEn=iso===req.to;
+        const bgl=ip?'#fef3e2':bg,cl=ip?'#c87820':c;
+        html+=`<div style="position:absolute;top:5px;bottom:5px;left:0;right:0;background:${bgl};border-top:1.5px solid ${cl};border-bottom:1.5px solid ${cl};${isSt?`border-left:1.5px solid ${cl};border-radius:3px 0 0 3px;padding-left:2px`:''};${isEn?`border-right:1.5px solid ${cl};border-radius:0 3px 3px 0`:''};overflow:hidden;display:flex;align-items:center">`;
+        if(isSt&&ip)html+=`<span style="font-size:8px;font-weight:600;color:${cl};white-space:nowrap">Pending</span>`;
+        html+=`</div>`;
+      }
+      html+=`</div>`;
+    }
+    html+=`</div>`;
+  });
+  html+=`</div>`;
+  document.getElementById('cal-grid').innerHTML=html;
+}
+
+// ── REQUESTS ─────────────────────────────────────────────────────
+function renderReqs(){
+  const s=(document.getElementById('rs').value||'').toLowerCase();
+  const sf=document.getElementById('rf').value,yr=selYear(),mf=document.getElementById('rmgr').value;
+  document.getElementById('req-yr-badge').textContent='— '+yr;
+  const f=requests.filter(r=>(!s||r.name.toLowerCase().includes(s))&&(!sf||r.status===sf)&&r.year===yr&&(!mf||getEmp(r.email)?.managerName===mf));
+  if(!f.length){document.getElementById('reqs-tbody').innerHTML=`<tr><td colspan="8" style="text-align:center;color:var(--hint);padding:2.5rem">No requests for ${yr}</td></tr>`;return;}
+  document.getElementById('reqs-tbody').innerHTML=f.map(r=>{
+    const emp=getEmp(r.email)||{};
+    const[bg,c]=dc(emp.dept||r.dept||'Commercial');
+    const canAct=canAction(r);
+    return`<tr>
+      <td><div class="iflex"><div class="av" style="background:${bg};color:${c}">${ini(r.name)}</div><span style="font-weight:500">${r.name}</span></div></td>
+      <td style="color:var(--muted);font-size:11px">${r.title||emp.title||''}</td>
+      <td style="white-space:nowrap">${fmtD(r.from)} – ${fmtD(r.to)}</td>
+      <td>${r.days}</td><td>${r.year}</td>
+      <td style="color:var(--muted)">${emp.managerName||'—'}</td>
+      <td><span class="badge badge-${(r.status||'').toLowerCase()}">${r.status||''}</span></td>
+      <td style="text-align:right;white-space:nowrap">
+        ${r.status==='Pending'&&canAct
+          ?`<button class="btn btn-sm btn-approve" onclick="actionReq(${r.id},'Approved',this)">✓ Approve</button>
+             <button class="btn btn-sm btn-reject" style="margin-left:4px" onclick="actionReq(${r.id},'Rejected',this)">✗ Reject</button>`
+          :r.status==='Pending'
+            ?`<span style="color:var(--hint);font-size:11px">Not your report</span>`
+            :`<span style="color:var(--hint);font-size:11px">—</span>`}
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+async function actionReq(id,status,btn){
+  const r=requests.find(x=>x.id===id);if(!r)return;
+  if(!canAction(r)){toast('Only the performance manager can approve this.',true);return;}
+  btn.disabled=true;btn.textContent='…';
+  try{
+    await updateStatus(id,status,currentUser.name);
+    r.status=status;r.approvedBy=currentUser.name;
+    toast(`${status} — Power Automate will email ${r.name} automatically`);
+    renderReqs();renderCal();renderStats();if(isAdmin)renderAdmin();
+  }catch(e){toast(e.message,true);btn.disabled=false;btn.textContent=status==='Approved'?'✓ Approve':'✗ Reject';}
+}
+
+// ── BY MANAGER ───────────────────────────────────────────────────
+function renderTeam(){
+  const yr=CY,t=todayISO();
+  const mgrs=[...new Set(EMPLOYEES.map(e=>e.managerName).filter(Boolean))].sort();
+  document.getElementById('team-cards').innerHTML=mgrs.map(mgr=>{
+    const me=EMPLOYEES.find(e=>e.name===mgr);
+    const reps=EMPLOYEES.filter(e=>e.managerName===mgr);
+    const appR=requests.filter(r=>r.status==='Approved'&&r.year===yr&&reps.some(e=>e.email===r.email));
+    const pendR=requests.filter(r=>r.status==='Pending'&&reps.some(e=>e.email===r.email));
+    const awayN=reps.filter(e=>requests.some(r=>r.email===e.email&&r.status==='Approved'&&r.from<=t&&t<=r.to)).length;
+    const[bg,c]=me?dc(me.dept):['#f0f0e8','#555'];
+    return`<div class="card" style="padding:1rem">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:6px">
+        <div class="iflex">
+          <div class="av" style="background:${bg};color:${c};width:34px;height:34px;font-size:12px">${ini(mgr)}</div>
+          <div><div style="font-weight:500;font-size:13px">${mgr}</div>
+          <div style="font-size:11px;color:var(--muted)">${me?.title||'Manager'} · ${reps.length} report${reps.length!==1?'s':''}</div></div>
+        </div>
+        <div style="display:flex;gap:4px;flex-wrap:wrap">
+          ${awayN?`<span class="badge badge-away">${awayN} away</span>`:''}
+          ${pendR.length?`<span class="badge badge-pending">${pendR.length} pending</span>`:''}
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:8px">${yr}: <strong>${appR.reduce((s,r)=>s+(r.days||0),0)} days</strong> approved across ${appR.length} request${appR.length!==1?'s':''}</div>
+      <div style="border-top:.5px solid var(--border);padding-top:8px">
+        ${reps.map(e=>{
+          const eDays=requests.filter(r=>r.email===e.email&&r.status==='Approved'&&r.year===yr).reduce((s,r)=>s+(r.days||0),0);
+          const isAway=requests.some(r=>r.email===e.email&&r.status==='Approved'&&r.from<=t&&t<=r.to);
+          const[ebg,ec]=dc(e.dept);
+          return`<div style="display:flex;align-items:center;gap:6px;padding:3px 0">
+            <div class="av av-sm" style="background:${ebg};color:${ec}">${ini(e.name)}</div>
+            <span style="font-size:11px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${e.name}</span>
+            <span style="font-size:10px;color:var(--hint)">${eDays}d in ${yr}</span>
+            ${isAway?'<span class="badge badge-away" style="padding:1px 6px;font-size:9px">Away</span>':''}
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── ALL EMPLOYEES ────────────────────────────────────────────────
+function renderEmps(){
+  const s=(document.getElementById('es').value||'').toLowerCase();
+  const mf=document.getElementById('emgr').value,df=document.getElementById('edept').value,t=todayISO();
+  const f=EMPLOYEES.filter(e=>(!s||e.name.toLowerCase().includes(s)||e.title.toLowerCase().includes(s))&&(!mf||e.managerName===mf)&&(!df||e.dept===df));
+  document.getElementById('emp-title').textContent=`All employees (${f.length})`;
+  document.getElementById('emps-tbody').innerHTML=f.map(e=>{
+    const[bg,c]=dc(e.dept);
+    const eDays=requests.filter(r=>r.email===e.email&&r.status==='Approved'&&r.year===CY).reduce((s,r)=>s+(r.days||0),0);
+    const pDays=requests.filter(r=>r.email===e.email&&r.status==='Pending'&&r.year===CY).reduce((s,r)=>s+(r.days||0),0);
+    const isAway=requests.some(r=>r.email===e.email&&r.status==='Approved'&&r.from<=t&&t<=r.to);
+    const noMgr=!e.manager||!e.manager.includes('@');
+    return`<tr>
+      <td><div class="iflex"><div class="av" style="background:${bg};color:${c}">${ini(e.name)}</div><span style="font-weight:500">${e.name}</span></div></td>
+      <td style="color:var(--muted);font-size:11px">${e.title}</td>
+      <td><span class="badge" style="background:${bg};color:${c};font-size:10px">${e.dept}</span></td>
+      <td style="font-size:11px">${noMgr?`<span style="color:#8a4e00">⚠ No manager — routes to central</span>`:e.managerName}</td>
+      <td><span style="font-weight:500">${eDays}</span>${pDays?` <span style="color:#8a4e00;font-size:10px">+${pDays} pending</span>`:''}</td>
+      <td><span class="badge badge-${isAway?'away':'active'}">${isAway?'Away':'Active'}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+// ── ADMIN ────────────────────────────────────────────────────────
+function renderAdmin(){
+  if(!isAdmin)return;
+  const s=(document.getElementById('admin-es').value||'').toLowerCase();
+  const df=document.getElementById('admin-edept').value;
+  const f=EMPLOYEES.filter(e=>(!s||e.name.toLowerCase().includes(s))&&(!df||e.dept===df));
+  const mgrOpts=EMPLOYEES.map(e=>`<option value="${e.email}|${e.name}">${e.name}</option>`).join('');
+  document.getElementById('admin-emps-tbody').innerHTML=f.map(e=>{
+    const noMgr=!e.manager||!e.manager.includes('@');
+    const[bg,c]=dc(e.dept);
+    return`<tr>
+      <td><div class="iflex"><div class="av av-sm" style="background:${bg};color:${c}">${ini(e.name)}</div><span style="font-weight:500">${e.name}</span></div></td>
+      <td style="color:var(--muted);font-size:11px">${e.title}</td>
+      <td style="font-size:11px">${e.dept}</td>
+      <td>
+        <div style="display:flex;align-items:center;gap:8px">
+          ${noMgr?`<span style="font-size:11px;color:#8a4e00;font-weight:500">⚠ Unassigned</span>`:`<span style="font-size:11px;color:var(--muted)">${e.managerName}</span>`}
+          <select style="font-size:11px;padding:3px 8px;border:.5px solid var(--border-med);border-radius:4px;background:var(--surface);color:var(--text)" onchange="reassignManager('${e.email}',this.value);this.value=''">
+            <option value="">reassign…</option>${mgrOpts}
+            <option value="${FALLBACK_EMAIL}|Central inbox">→ Central inbox</option>
+          </select>
+        </div>
+      </td>
+      <td style="text-align:right"><button class="btn btn-sm btn-warn" onclick="openEditEmpModal('${e.email}')">Edit</button></td>
+    </tr>`;
+  }).join('');
+  const pend=requests.filter(r=>r.status==='Pending');
+  document.getElementById('admin-reqs-tbody').innerHTML=pend.length
+    ?pend.map(r=>{const emp=getEmp(r.email)||{};const[bg,c]=dc(emp.dept||'Commercial');
+        return`<tr>
+          <td><div class="iflex"><div class="av av-sm" style="background:${bg};color:${c}">${ini(r.name)}</div>${r.name}</div></td>
+          <td style="white-space:nowrap">${fmtD(r.from)} – ${fmtD(r.to)}</td>
+          <td>${r.days}</td>
+          <td style="color:var(--muted);font-size:11px">${emp.managerName||'⚠ no manager'}</td>
+          <td style="text-align:right;white-space:nowrap">
+            <button class="btn btn-sm btn-approve" onclick="actionReq(${r.id},'Approved',this)">✓ Approve</button>
+            <button class="btn btn-sm btn-reject" style="margin-left:4px" onclick="actionReq(${r.id},'Rejected',this)">✗ Reject</button>
+          </td>
+        </tr>`;}).join('')
+    :`<tr><td colspan="5" style="text-align:center;color:var(--hint);padding:1.5rem">No pending requests</td></tr>`;
+}
+
+function reassignManager(empEmail,val){
+  if(!val||!isAdmin)return;
+  const[mgrEmail,mgrName]=val.split('|');
+  const emp=EMPLOYEES.find(e=>e.email===empEmail);if(!emp)return;
+  emp.manager=mgrEmail;emp.managerName=mgrName==='Central inbox'?'':mgrName;
+  toast(`${emp.name} reassigned to ${mgrName||'central inbox'}`);
+  renderAdmin();renderEmps();renderTeam();
+}
+
+// ── MODALS ────────────────────────────────────────────────────────
+let modalType='';
+function openReqModal(){
+  modalType='req';
+  document.getElementById('modal-title').textContent='New vacation request';
+  document.getElementById('modal-ok').textContent='Submit request';
+  const t=todayISO();
+  document.getElementById('modal-body').innerHTML=`
+    <div class="field"><label>Employee</label>
+      <select id="m-emp">${EMPLOYEES.map(e=>`<option value="${e.email}">${e.name} — ${e.title.split(',')[0]}</option>`).join('')}</select>
+    </div>
+    <div class="grid2">
+      <div class="field"><label>Start date</label><input type="date" id="m-from" value="${t}"></div>
+      <div class="field"><label>End date</label><input type="date" id="m-to" value="${t}"></div>
+    </div>
+    <div id="days-preview" style="font-size:12px;color:var(--muted);margin-bottom:.75rem;min-height:1.2em"></div>
+    <div class="field"><label>Notes (optional)</label><textarea id="m-note" placeholder="Trip details, context…"></textarea></div>`;
+  document.getElementById('m-from').onchange=upDP;
+  document.getElementById('m-to').onchange=upDP;
+  upDP();
+  document.getElementById('modal-overlay').classList.add('open');
+}
+function upDP(){
+  const f=document.getElementById('m-from')?.value,t=document.getElementById('m-to')?.value,el=document.getElementById('days-preview');
+  if(!el||!f||!t)return;
+  if(t<f){el.textContent='⚠ End must be after start date';el.style.color='#8a1a1a';return;}
+  const d=bizDays(f,t);el.textContent=d+' business day'+(d!==1?'s':'');el.style.color='var(--muted)';
+}
+function openAddEmpModal(){
+  modalType='addEmp';
+  document.getElementById('modal-title').textContent='Add employee';
+  document.getElementById('modal-ok').textContent='Add employee';
+  document.getElementById('modal-body').innerHTML=`
+    <div class="warn-box">This updates the tracker for this session. To make it permanent, also add a row to the EMPLOYEES list near the top of the HTML file and re-upload it to SharePoint.</div>
+    <div class="field"><label>Full name</label><input type="text" id="m-name" placeholder="First Last"></div>
+    <div class="field"><label>Work email</label><input type="email" id="m-email" placeholder="first.last@cavellrisk.com"></div>
+    <div class="field"><label>Job title</label><input type="text" id="m-title" placeholder="Manager, Client Experience"></div>
+    <div class="grid2">
+      <div class="field"><label>Department</label><select id="m-dept"><option>Commercial</option><option>Corporate</option></select></div>
+      <div class="field"><label>Performance manager</label>
+        <select id="m-mgr">
+          ${EMPLOYEES.map(e=>`<option value="${e.email}|${e.name}">${e.name}</option>`).join('')}
+          <option value="${FALLBACK_EMAIL}|">No manager — central inbox</option>
+        </select>
+      </div>
+    </div>`;
+  document.getElementById('modal-overlay').classList.add('open');
+}
+function openEditEmpModal(email){
+  const emp=getEmp(email);if(!emp)return;
+  modalType='editEmp';
+  document.getElementById('modal-title').textContent='Edit — '+emp.name;
+  document.getElementById('modal-ok').textContent='Save changes';
+  document.getElementById('modal-body').innerHTML=`
+    <input type="hidden" id="m-orig-email" value="${emp.email}">
+    <div class="field"><label>Full name</label><input type="text" id="m-name" value="${emp.name}"></div>
+    <div class="field"><label>Work email</label><input type="email" id="m-email" value="${emp.email}"></div>
+    <div class="field"><label>Job title</label><input type="text" id="m-title" value="${emp.title}"></div>
+    <div class="grid2">
+      <div class="field"><label>Department</label>
+        <select id="m-dept"><option${emp.dept==='Commercial'?' selected':''}>Commercial</option><option${emp.dept==='Corporate'?' selected':''}>Corporate</option></select>
+      </div>
+      <div class="field"><label>Performance manager</label>
+        <select id="m-mgr">
+          ${EMPLOYEES.map(e=>`<option value="${e.email}|${e.name}"${e.email===emp.manager?' selected':''}>${e.name}</option>`).join('')}
+          <option value="${FALLBACK_EMAIL}|"${emp.manager===FALLBACK_EMAIL?' selected':''}>No manager — central inbox</option>
+        </select>
+      </div>
+    </div>`;
+  document.getElementById('modal-overlay').classList.add('open');
+}
+function closeModal(){document.getElementById('modal-overlay').classList.remove('open');}
+
+async function submitModal(){
+  const ok=document.getElementById('modal-ok');
+  ok.disabled=true;ok.textContent='Saving…';
+  try{
+    if(modalType==='req'){
+      const empEmail=document.getElementById('m-emp').value;
+      const emp=getEmp(empEmail);
+      const f=document.getElementById('m-from').value,t=document.getElementById('m-to').value;
+      if(!f||!t||t<f){toast('Check your dates',true);ok.disabled=false;ok.textContent='Submit request';return;}
+      const days=bizDays(f,t),yr=new Date(f).getFullYear(),notes=document.getElementById('m-note').value;
+      const mgrEmail=resolveManager(emp);
+      const fields={
+        '__metadata':{'type':'SP.Data.VacationRequestsListItem'},
+        EmployeeCode:emp.code,EmployeeName:emp.name,EmployeeEmail:emp.email,
+        ManagerEmail:mgrEmail,Department:emp.dept,JobTitle:emp.title,
+        StartDate:f+'T00:00:00Z',EndDate:t+'T00:00:00Z',
+        TotalDays:days,CalendarYear:yr,Status:'Pending',Notes:notes,ApprovedBy:''
+      };
+      const item=await createReq(fields);
+      requests.unshift({id:item.Id||item.id,code:emp.code,name:emp.name,email:emp.email,managerEmail:mgrEmail,dept:emp.dept,title:emp.title,from:f,to:t,days,year:yr,status:'Pending',notes,approvedBy:''});
+      // Power Automate Flow 1 fires automatically when this new list item is created
+      toast(`Request submitted — ${emp.managerName||'central inbox'} will be notified automatically`);
+      populateYearFilter();
+      closeModal();renderCal();renderReqs();renderTeam();renderEmps();renderStats();
+
+    }else if(modalType==='addEmp'){
+      const name=(document.getElementById('m-name').value||'').trim();
+      const email=(document.getElementById('m-email').value||'').trim().toLowerCase();
+      const title=(document.getElementById('m-title').value||'').trim();
+      const dept=document.getElementById('m-dept').value;
+      const[mgrEmail,mgrName]=(document.getElementById('m-mgr').value||'').split('|');
+      if(!name||!email){toast('Name and email are required',true);ok.disabled=false;ok.textContent='Add employee';return;}
+      EMPLOYEES.push({code:name.replace(/\s/g,'').slice(0,6).toUpperCase(),name,email,title,dept,manager:mgrEmail||'',managerName:mgrName||''});
+      toast(name+' added');
+      closeModal();populateMgrDropdowns();renderAdmin();renderEmps();renderTeam();
+
+    }else if(modalType==='editEmp'){
+      const orig=document.getElementById('m-orig-email').value;
+      const emp=getEmp(orig);if(!emp){toast('Not found',true);return;}
+      emp.name=(document.getElementById('m-name').value||emp.name).trim();
+      emp.email=(document.getElementById('m-email').value||emp.email).trim().toLowerCase();
+      emp.title=(document.getElementById('m-title').value||emp.title).trim();
+      emp.dept=document.getElementById('m-dept').value;
+      const[mgrEmail,mgrName]=(document.getElementById('m-mgr').value||'').split('|');
+      emp.manager=mgrEmail||'';emp.managerName=mgrName||'';
+      toast(emp.name+' updated');
+      closeModal();populateMgrDropdowns();renderAdmin();renderEmps();renderTeam();
+    }
+  }catch(e){toast(e.message,true);}
+  ok.disabled=false;
+  ok.textContent=modalType==='req'?'Submit request':modalType==='addEmp'?'Add employee':'Save changes';
+}
+
+// ── INIT ──────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', boot);
+</script>
+</body>
+</html>
